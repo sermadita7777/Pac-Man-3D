@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PAC-MAN 3D</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        <div id="hud">
+            <div id="score-display">SCORE: <span id="score">0</span></div>
+            <div id="lives-display"></div>
+            <div id="level-display">LEVEL: <span id="level">1</span></div>
+        </div>
+        <div id="screen-overlay">
+            <div id="screen-content">
+                <h1 id="screen-title">PAC-MAN 3D</h1>
+                <p id="screen-text">Press ENTER to start</p>
+                <div id="screen-controls">
+                    <p>WASD / Arrow Keys — Move</p>
+                    <p>SHIFT — Sprint</p>
+                </div>
+            </div>
+        </div>
+        <div id="power-indicator">POWER MODE</div>
+    </div>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+        }
+    }
+    </script>
+    <script type="module" src="src/core/game.js"></script>
+</body>
+</html>
