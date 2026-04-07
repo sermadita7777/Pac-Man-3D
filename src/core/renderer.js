@@ -7,8 +7,11 @@ const CAM_LERP = 18;
 
 let yaw = -Math.PI / 2;
 let pitch = 0;
+let shakeIntensity = 0;
 
 const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
+
+let composer = null;
 
 export function createRenderer(canvas) {
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -21,9 +24,33 @@ export function createRenderer(canvas) {
 
     window.addEventListener('resize', () => {
         renderer.setSize(window.innerWidth, window.innerHeight);
+        if (composer) composer.setSize(window.innerWidth, window.innerHeight);
     });
 
     return renderer;
+}
+
+export async function setupPostProcessing(renderer, scene, camera) {
+    try {
+        const [{ EffectComposer }, { RenderPass }, { UnrealBloomPass }] = await Promise.all([
+            import('three/addons/postprocessing/EffectComposer.js'),
+            import('three/addons/postprocessing/RenderPass.js'),
+            import('three/addons/postprocessing/UnrealBloomPass.js'),
+        ]);
+
+        composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, camera));
+
+        const bloom = new UnrealBloomPass(
+            new THREE.Vector2(window.innerWidth, window.innerHeight),
+            0.35,
+            0.4,
+            0.82
+        );
+        composer.addPass(bloom);
+    } catch (_) {
+        composer = null;
+    }
 }
 
 export function createScene() {
@@ -68,6 +95,25 @@ export function updateFPSCamera(camera, player, dt, mouseDelta) {
 
     _euler.set(pitch, yaw, 0);
     camera.quaternion.setFromEuler(_euler);
+}
+
+export function renderScene(renderer, scene, camera) {
+    if (shakeIntensity > 0) {
+        camera.position.x += (Math.random() - 0.5) * shakeIntensity * 0.3;
+        camera.position.y += (Math.random() - 0.5) * shakeIntensity * 0.15;
+        shakeIntensity *= 0.93;
+        if (shakeIntensity < 0.01) shakeIntensity = 0;
+    }
+
+    if (composer) {
+        composer.render();
+    } else {
+        renderer.render(scene, camera);
+    }
+}
+
+export function setCameraShake(intensity) {
+    shakeIntensity = intensity;
 }
 
 export function getYaw() {

@@ -123,9 +123,10 @@ export function createGhosts(scene) {
 }
 
 export function updateGhosts(ghosts, player, dt, level) {
-    const levelSpeedMod = 1 + (level - 1) * 0.06;
+    const levelSpeedMod = 1 + (level - 1) * 0.08;
 
     for (const ghost of ghosts) {
+        ghost._level = level;
         switch (ghost.state) {
             case STATE.HOUSE:
                 updateHouse(ghost, dt);
@@ -217,12 +218,13 @@ function updateVisuals(ghost, player, dt) {
     }
 }
 
-export function frightenGhosts(ghosts) {
+export function frightenGhosts(ghosts, level) {
+    const frightenTime = Math.max(2, 8 - (level - 1) * 0.75);
     for (const ghost of ghosts) {
         if (ghost.state === STATE.CHASE || ghost.state === STATE.SCATTER) {
             ghost.prevState = ghost.state;
             ghost.state = STATE.FRIGHTENED;
-            ghost.modeTimer = 8;
+            ghost.modeTimer = frightenTime;
             ghost.path = [];
             ghost.frightenFlash = false;
         }
@@ -327,6 +329,9 @@ function updateEaten(ghost, dt) {
     const step = EATEN_SPEED * dt;
     ghost.x += (dx / dist) * step;
     ghost.z += (dz / dist) * step;
+
+    if (ghost.x < -0.5) ghost.x = COLS - 0.5;
+    if (ghost.x > COLS - 0.5) ghost.x = -0.5;
 }
 
 function moveAlongPath(ghost, dt, speed) {
@@ -349,6 +354,9 @@ function moveAlongPath(ghost, dt, speed) {
     const step = speed * dt;
     ghost.x += (dx / dist) * step;
     ghost.z += (dz / dist) * step;
+
+    if (ghost.x < -0.5) ghost.x = COLS - 0.5;
+    if (ghost.x > COLS - 0.5) ghost.x = -0.5;
 
     const targetAngle = Math.atan2(-dx, -dz);
     const currentY = ghost.mesh.rotation.y;
@@ -394,8 +402,9 @@ function getChaseTarget(ghost, player, allGhosts) {
         }
 
         case 'clyde': {
+            const shyDist = Math.max(3, 8 - (ghost._level || 1) * 0.5);
             const d = Math.sqrt((ghost.x - player.x) ** 2 + (ghost.z - player.z) ** 2);
-            return d > 8 ? { x: player.x, z: player.z } : ghost.scatterTarget;
+            return d > shyDist ? { x: player.x, z: player.z } : ghost.scatterTarget;
         }
 
         default:
