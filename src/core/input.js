@@ -1,40 +1,43 @@
 const keys = {};
-let lastDirection = null;
-let queuedDirection = null;
+let mouseX = 0;
+let mouseY = 0;
+let mouseDX = 0;
+let mouseDY = 0;
+let pointerLocked = false;
+const SENSITIVITY = 0.002;
 
-const KEY_MAP = {
-    'ArrowUp': 'up', 'KeyW': 'up',
-    'ArrowDown': 'down', 'KeyS': 'down',
-    'ArrowLeft': 'left', 'KeyA': 'left',
-    'ArrowRight': 'right', 'KeyD': 'right',
-};
-
-export function initInput() {
+export function initInput(canvas) {
     window.addEventListener('keydown', (e) => {
         keys[e.code] = true;
-        const dir = KEY_MAP[e.code];
-        if (dir) {
-            queuedDirection = dir;
-        }
     });
 
     window.addEventListener('keyup', (e) => {
         keys[e.code] = false;
     });
+
+    canvas.addEventListener('click', () => {
+        if (!pointerLocked) {
+            canvas.requestPointerLock();
+        }
+    });
+
+    document.addEventListener('pointerlockchange', () => {
+        pointerLocked = document.pointerLockElement === canvas;
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!pointerLocked) return;
+        mouseDX += e.movementX * SENSITIVITY;
+        mouseDY += e.movementY * SENSITIVITY;
+    });
 }
 
-export function getQueuedDirection() {
-    return queuedDirection;
-}
-
-export function consumeDirection() {
-    const dir = queuedDirection;
-    queuedDirection = null;
-    return dir;
-}
-
-export function setQueuedDirection(dir) {
-    queuedDirection = dir;
+export function consumeMouse() {
+    const dx = mouseDX;
+    const dy = mouseDY;
+    mouseDX = 0;
+    mouseDY = 0;
+    return { dx, dy };
 }
 
 export function isKeyDown(code) {
@@ -47,4 +50,8 @@ export function isEnterPressed() {
 
 export function clearKey(code) {
     keys[code] = false;
+}
+
+export function isPointerLocked() {
+    return pointerLocked;
 }

@@ -2,6 +2,13 @@ import * as THREE from 'three';
 
 const SHADOW_MAP_SIZE = 1024;
 const EYE_HEIGHT = 0.55;
+const PITCH_LIMIT = Math.PI * 0.45;
+const CAM_LERP = 18;
+
+let yaw = -Math.PI / 2;
+let pitch = 0;
+
+const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
 
 export function createRenderer(canvas) {
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -33,6 +40,7 @@ export function createScene() {
 export function createCamera() {
     const camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 0.05, 50);
     camera.position.set(14, EYE_HEIGHT, 22);
+    camera.rotation.order = 'YXZ';
 
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
@@ -42,36 +50,28 @@ export function createCamera() {
     return camera;
 }
 
-const _lookTarget = new THREE.Vector3();
-const _camPos = new THREE.Vector3();
-const DIR_ANGLES = {
-    up: Math.PI,
-    down: 0,
-    left: -Math.PI / 2,
-    right: Math.PI / 2,
-};
+export function updateFPSCamera(camera, player, dt, mouseDelta) {
+    yaw -= mouseDelta.dx;
+    pitch -= mouseDelta.dy;
+    pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch));
 
-let currentAngle = 0;
+    const targetX = player.x;
+    const targetZ = player.z;
+    const lerpFactor = Math.min(1, dt * CAM_LERP);
 
-export function updateFPSCamera(camera, player, dt) {
-    const targetAngle = DIR_ANGLES[player.direction] ?? 0;
+    camera.position.x += (targetX - camera.position.x) * lerpFactor;
+    camera.position.y += (EYE_HEIGHT - camera.position.y) * lerpFactor;
+    camera.position.z += (targetZ - camera.position.z) * lerpFactor;
 
-    let diff = targetAngle - currentAngle;
-    while (diff > Math.PI) diff -= Math.PI * 2;
-    while (diff < -Math.PI) diff += Math.PI * 2;
-    currentAngle += diff * Math.min(1, dt * 12);
+    _euler.set(pitch, yaw, 0);
+    camera.quaternion.setFromEuler(_euler);
+}
 
-    _camPos.set(player.x, EYE_HEIGHT, player.z);
-    camera.position.lerp(_camPos, Math.min(1, dt * 15));
-
-    _lookTarget.set(
-        camera.position.x + Math.sin(currentAngle) * 2,
-        EYE_HEIGHT - 0.05,
-        camera.position.z + Math.cos(currentAngle) * 2
-    );
-    camera.lookAt(_lookTarget);
+export function getYaw() {
+    return yaw;
 }
 
 export function resetFPSCamera(player) {
-    currentAngle = DIR_ANGLES[player.direction] ?? 0;
+    yaw = -Math.PI / 2;
+    pitch = 0;
 }

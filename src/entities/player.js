@@ -11,12 +11,8 @@ const DIR_VECTORS = {
     right: { x: 1, z: 0 },
 };
 
-const DIR_ANGLES = {
-    up: Math.PI,
-    down: 0,
-    left: -Math.PI / 2,
-    right: Math.PI / 2,
-};
+const GRID_DIRS = ['up', 'right', 'down', 'left'];
+const GRID_ANGLES = [Math.PI, Math.PI / 2, 0, -Math.PI / 2];
 
 export function createPlayer(scene) {
     const flashlight = new THREE.SpotLight(0xffffcc, 2.5, 12, Math.PI / 4, 0.4, 1.5);
@@ -35,31 +31,72 @@ export function createPlayer(scene) {
     scene.add(ambientGlow);
 
     return {
-        mesh: null,
         flashlight,
         flashTarget,
         ambientGlow,
         x: PLAYER_START.x,
         z: PLAYER_START.z,
-        direction: 'left',
+        direction: null,
         nextDirection: null,
+        moving: false,
         speed: SPEED,
         alive: true,
         powerTimer: 0,
     };
 }
 
-export function updatePlayer(player, dt, sprinting) {
+export function resolveDirectionFromInput(w, a, s, d, cameraYaw) {
+    let mx = 0, mz = 0;
+
+    const sinY = Math.sin(cameraYaw);
+    const cosY = Math.cos(cameraYaw);
+
+    if (w) { mx -= sinY; mz -= cosY; }
+    if (s) { mx += sinY; mz += cosY; }
+    if (a) { mx -= cosY; mz += sinY; }
+    if (d) { mx += cosY; mz -= sinY; }
+
+    if (mx === 0 && mz === 0) return null;
+
+    const moveAngle = Math.atan2(mx, mz);
+
+    let bestDir = null;
+    let bestDiff = Infinity;
+    for (let i = 0; i < 4; i++) {
+        let diff = Math.abs(normalizeAngle(moveAngle - GRID_ANGLES[i]));
+        if (diff < bestDiff) {
+            bestDiff = diff;
+            bestDir = GRID_DIRS[i];
+        }
+    }
+
+    return bestDir;
+}
+
+export function updatePlayer(player, dt, sprinting, inputDir) {
     if (!player.alive) return;
 
-    const spd = player.speed * (sprinting ? SPRINT_MULT : 1) * dt;
+    if (inputDir) {
+        if (inputDir !== player.direction && canMove(player, inputDir)) {
+            player.direction = inputDir;
+        } else if (!player.direction || !canMove(player, player.direction)) {
+            if (canMove(player, inputDir)) {
+                player.direction = inputDir;
+            }
+        }
+        player.nextDirection = inputDir;
+        player.moving = true;
+    } else {
+        player.moving = false;
+    }
 
     if (player.nextDirection && canMove(player, player.nextDirection)) {
         player.direction = player.nextDirection;
         player.nextDirection = null;
     }
 
-    if (player.direction && canMove(player, player.direction)) {
+    if (player.moving && player.direction && canMove(player, player.direction)) {
+        const spd = player.speed * (sprinting ? SPRINT_MULT : 1) * dt;
         const vec = DIR_VECTORS[player.direction];
         player.x += vec.x * spd;
         player.z += vec.z * spd;
@@ -69,20 +106,25 @@ export function updatePlayer(player, dt, sprinting) {
     if (player.x > COLS - 0.5) player.x = -0.5;
 
     snapToCenter(player);
+    updateLights(player);
+}
 
-    const angle = DIR_ANGLES[player.direction] ?? 0;
-    const lookDist = 3;
+export function resetPlayer(player) {
+    player.x = PLAYER_START.x;
+    player.z = PLAYER_START.z;
+    player.direction = null;
+    player.nextDirection = null;
+    player.moving = false;
+    player.alive = true;
+    player.powerTimer = 0;
+}
 
+function updateLights(player) {
     player.flashlight.position.set(player.x, 0.5, player.z);
-    player.flashTarget.position.set(
-        player.x + Math.sin(angle) * lookDist,
-        0.3,
-        player.z + Math.cos(angle) * lookDist
-    );
     player.ambientGlow.position.set(player.x, 0.4, player.z);
 
     if (player.powerTimer > 0) {
-        player.powerTimer -= dt;
+        player.powerTimer -= 1 / 60;
         player.ambientGlow.color.setHex(0x4444ff);
         player.ambientGlow.intensity = 1.0 + Math.sin(Date.now() * 0.01) * 0.3;
     } else {
@@ -91,13 +133,13 @@ export function updatePlayer(player, dt, sprinting) {
     }
 }
 
-export function resetPlayer(player) {
-    player.x = PLAYER_START.x;
-    player.z = PLAYER_START.z;
-    player.direction = 'left';
-    player.nextDirection = null;
-    player.alive = true;
-    player.powerTimer = 0;
+export function updateFlashlightDirection(player, cameraYaw) {
+    const lookDist = 3;
+    player.flashTarget.position.set(
+        player.x - Math.sin(cameraYaw) * lookDist,
+        0.2,
+        player.z - Math.cos(cameraYaw) * lookDist
+    );
 }
 
 function canMove(player, dir) {
@@ -110,11 +152,18 @@ function canMove(player, dir) {
 
 function snapToCenter(player) {
     const dir = player.direction;
+    if (!dir) return;
     if (dir === 'left' || dir === 'right') {
         const targetZ = Math.floor(player.z) + 0.5;
         player.z += (targetZ - player.z) * 0.25;
-    } else if (dir === 'up' || dir === 'down') {
+    } else {
         const targetX = Math.floor(player.x) + 0.5;
         player.x += (targetX - player.x) * 0.25;
     }
+}
+
+function normalizeAngle(a) {
+    while (a > Math.PI) a -= Math.PI * 2;
+    while (a < -Math.PI) a += Math.PI * 2;
+    return a;
 }

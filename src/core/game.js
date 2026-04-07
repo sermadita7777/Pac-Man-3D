@@ -1,8 +1,8 @@
-import { createRenderer, createScene, createCamera, updateFPSCamera, resetFPSCamera } from './renderer.js';
-import { initInput, getQueuedDirection, isKeyDown, isEnterPressed, clearKey } from './input.js';
+import { createRenderer, createScene, createCamera, updateFPSCamera, getYaw, resetFPSCamera } from './renderer.js';
+import { initInput, consumeMouse, isKeyDown, isEnterPressed, clearKey, isPointerLocked } from './input.js';
 import { playChomp, playPowerUp, playGhostEat, playDeath, playStart } from './audio.js';
 import { buildMaze } from '../entities/maze.js';
-import { createPlayer, updatePlayer, resetPlayer } from '../entities/player.js';
+import { createPlayer, updatePlayer, resetPlayer, resolveDirectionFromInput, updateFlashlightDirection } from '../entities/player.js';
 import { createGhosts, updateGhosts, frightenGhosts, resetGhosts } from '../entities/ghost.js';
 import { createPellets, updatePellets, resetPellets, countRemaining } from '../entities/pellet.js';
 import { checkPelletCollisions, checkGhostCollisions } from '../systems/collision.js';
@@ -21,7 +21,7 @@ const renderer = createRenderer(canvas);
 const scene = createScene();
 const camera = createCamera();
 
-initInput();
+initInput(canvas);
 buildMaze(scene);
 createMinimap();
 
@@ -39,6 +39,8 @@ let state = {
     deathShake: 0,
 };
 
+const lockPrompt = document.getElementById('lock-prompt');
+
 showStartScreen();
 updateHUD(state.score, state.level, state.lives, player.powerTimer);
 resetFPSCamera(player);
@@ -50,6 +52,12 @@ function gameLoop(time) {
 
     const dt = Math.min((time - lastTime) / 1000, 0.05);
     lastTime = time;
+
+    const mouse = consumeMouse();
+
+    if (lockPrompt) {
+        lockPrompt.classList.toggle('hidden', isPointerLocked() || state.phase !== PHASE.PLAYING);
+    }
 
     switch (state.phase) {
         case PHASE.MENU:
@@ -72,7 +80,8 @@ function gameLoop(time) {
             break;
     }
 
-    updateFPSCamera(camera, player, dt);
+    updateFPSCamera(camera, player, dt, mouse);
+    updateFlashlightDirection(player, getYaw());
     renderer.render(scene, camera);
 }
 
@@ -93,12 +102,15 @@ function handleReady(dt) {
 }
 
 function handlePlaying(dt) {
-    const dir = getQueuedDirection();
-    if (dir) {
-        player.nextDirection = dir;
-    }
+    const w = isKeyDown('KeyW') || isKeyDown('ArrowUp');
+    const a = isKeyDown('KeyA') || isKeyDown('ArrowLeft');
+    const s = isKeyDown('KeyS') || isKeyDown('ArrowDown');
+    const d = isKeyDown('KeyD') || isKeyDown('ArrowRight');
+    const sprinting = isKeyDown('ShiftLeft') || isKeyDown('ShiftRight');
 
-    updatePlayer(player, dt, isKeyDown('ShiftLeft') || isKeyDown('ShiftRight'));
+    const inputDir = resolveDirectionFromInput(w, a, s, d, getYaw());
+
+    updatePlayer(player, dt, sprinting, inputDir);
     updateGhosts(ghosts, player, dt, state.level);
     updatePellets(pellets, dt);
 
@@ -145,10 +157,8 @@ function handlePlaying(dt) {
 function handleDying(dt) {
     state.phaseTimer -= dt;
     state.deathShake *= 0.95;
-    camera.rotation.z = (Math.random() - 0.5) * state.deathShake * 0.15;
 
     if (state.phaseTimer <= 0) {
-        camera.rotation.z = 0;
         state.lives--;
         if (state.lives <= 0) {
             state.phase = PHASE.GAME_OVER;
