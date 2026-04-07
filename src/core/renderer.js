@@ -17,7 +17,7 @@ export function createRenderer(canvas) {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
+    renderer.toneMappingExposure = 1.1;
 
     window.addEventListener('resize', () => {
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -29,10 +29,13 @@ export function createRenderer(canvas) {
 export function createScene() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x020208);
-    scene.fog = new THREE.FogExp2(0x020208, 0.12);
+    scene.fog = new THREE.FogExp2(0x020210, 0.10);
 
-    const ambient = new THREE.AmbientLight(0x111133, 0.3);
+    const ambient = new THREE.AmbientLight(0x0a0a2a, 0.35);
     scene.add(ambient);
+
+    const hemi = new THREE.HemisphereLight(0x0808aa, 0x020206, 0.15);
+    scene.add(hemi);
 
     return scene;
 }
