@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 
 const FRUIT_TYPES = [
-    { name: 'cherry', color: 0xff0000, emissive: 0xaa0000, score: 100 },
-    { name: 'strawberry', color: 0xff3366, emissive: 0xaa2244, score: 300 },
-    { name: 'orange', color: 0xff8800, emissive: 0xaa5500, score: 500 },
-    { name: 'apple', color: 0x00ff00, emissive: 0x00aa00, score: 700 },
-    { name: 'melon', color: 0x44ff88, emissive: 0x22aa44, score: 1000 },
-    { name: 'galaxian', color: 0x4488ff, emissive: 0x2244aa, score: 2000 },
-    { name: 'bell', color: 0xffff00, emissive: 0xaaaa00, score: 3000 },
-    { name: 'key', color: 0x8888ff, emissive: 0x4444aa, score: 5000 },
+    { name: 'heart', color: 0x880000, emissive: 0x660000, score: 100 },
+    { name: 'eye', color: 0x884444, emissive: 0x662222, score: 300 },
+    { name: 'skull', color: 0x886633, emissive: 0x664411, score: 500 },
+    { name: 'bone', color: 0x888866, emissive: 0x666644, score: 700 },
+    { name: 'brain', color: 0x884455, emissive: 0x662233, score: 1000 },
+    { name: 'soul', color: 0x446688, emissive: 0x224466, score: 2000 },
+    { name: 'relic', color: 0x886644, emissive: 0x664422, score: 3000 },
+    { name: 'key', color: 0x666688, emissive: 0x444466, score: 5000 },
 ];
 
 const SPAWN_X = 13.5;

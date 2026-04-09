@@ -1,6 +1,6 @@
 import { createRenderer, createScene, createCamera, updateFPSCamera, getYaw, resetFPSCamera, setupPostProcessing, renderScene, setCameraShake } from './renderer.js';
 import { initInput, consumeMouse, isKeyDown, isEnterPressed, clearKey, isPointerLocked } from './input.js';
-import { playChomp, playPowerUp, playGhostEat, playDeath, playStart, playFruitEat, playFootstep, initAmbient, updateAmbient, stopAmbient, startSiren, stopSiren, updateSiren } from './audio.js';
+import { playChomp, playPowerUp, playGhostEat, playDeath, playStart, playFruitEat, playFootstep, initAmbient, updateAmbient, stopAmbient, playJumpscare, playFlickerSound, playScoreTick } from './audio.js';
 import { buildMaze } from '../entities/maze.js';
 import { createPlayer, updatePlayer, resetPlayer, resolveDirectionFromInput, updateFlashlightDirection } from '../entities/player.js';
 import { createGhosts, updateGhosts, frightenGhosts, resetGhosts } from '../entities/ghost.js';
@@ -8,7 +8,7 @@ import { createPellets, updatePellets, resetPellets, countRemaining } from '../e
 import { createFruit, updateFruit, resetFruit, notifyPelletEaten, checkFruitCollision } from '../entities/fruit.js';
 import { checkPelletCollisions, checkGhostCollisions } from '../systems/collision.js';
 import { createParticleSystem, updateParticles, spawnParticles } from '../systems/particles.js';
-import { updateHUD } from '../ui/hud.js';
+import { updateHUD, showCombo, getHighScore } from '../ui/hud.js';
 import { showStartScreen, showGameOver, showLevelComplete, showReady, hideOverlay } from '../ui/screens.js';
 import { createMinimap, updateMinimap } from '../ui/minimap.js';
 
@@ -37,6 +37,12 @@ setupPostProcessing(renderer, scene, camera);
 
 const deathFlash = document.getElementById('death-flash');
 const fruitScoreEl = document.getElementById('fruit-score');
+const lockPrompt = document.getElementById('lock-prompt');
+const pauseOverlay = document.getElementById('pause-overlay');
+const countdownEl = document.getElementById('countdown');
+const jumpscareOverlay = document.getElementById('jumpscare-overlay');
+const staticNoise = document.getElementById('static-noise');
+const gameCanvas = document.getElementById('game-canvas');
 
 let state = {
     phase: PHASE.MENU,
@@ -49,10 +55,13 @@ let state = {
     ambientStarted: false,
 };
 
-const lockPrompt = document.getElementById('lock-prompt');
+let isPaused = false;
+let flickerTimer = 0;
+let nextFlickerTime = 8 + Math.random() * 15;
 
+window.__gameLoaded = true;
 showStartScreen();
-updateHUD(state.score, state.level, state.lives, player.powerTimer);
+updateHUD(state.score, state.level, state.lives, player.powerTimer, false);
 resetFPSCamera(player);
 
 let lastTime = 0;
@@ -65,54 +74,62 @@ function gameLoop(time) {
 
     const mouse = consumeMouse();
 
-    if (lockPrompt) {
-        lockPrompt.classList.toggle('hidden', isPointerLocked() || state.phase !== PHASE.PLAYING);
+    // Pause toggle
+    if (isKeyDown('Escape') && state.phase === PHASE.PLAYING) {
+        clearKey('Escape');
+        isPaused = !isPaused;
+        pauseOverlay.classList.toggle('active', isPaused);
+        if (!isPaused) canvas.requestPointerLock();
+        else document.exitPointerLock();
     }
 
+    if (isPaused) { renderScene(renderer, scene, camera); return; }
+
+    if (lockPrompt) lockPrompt.classList.toggle('hidden', isPointerLocked() || state.phase !== PHASE.PLAYING);
+
     switch (state.phase) {
-        case PHASE.MENU:
-            handleMenu();
-            break;
-        case PHASE.READY:
-            handleReady(dt);
-            break;
-        case PHASE.PLAYING:
-            handlePlaying(dt);
-            break;
-        case PHASE.DYING:
-            handleDying(dt);
-            break;
-        case PHASE.LEVEL_COMPLETE:
-            handleLevelComplete(dt);
-            break;
-        case PHASE.GAME_OVER:
-            handleGameOver();
-            break;
+        case PHASE.MENU:         handleMenu(); break;
+        case PHASE.READY:        handleReady(dt); break;
+        case PHASE.PLAYING:      handlePlaying(dt); break;
+        case PHASE.DYING:        handleDying(dt); break;
+        case PHASE.LEVEL_COMPLETE: handleLevelComplete(dt); break;
+        case PHASE.GAME_OVER:    handleGameOver(); break;
     }
 
     updateFPSCamera(camera, player, dt, mouse);
-    updateFlashlightDirection(player, getYaw());
+    updateFlashlightDirection(player, getYaw(), dt);
     renderScene(renderer, scene, camera);
 }
 
 function handleMenu() {
     if (isEnterPressed()) {
         clearKey('Enter');
-        playStart();
+        try { playStart(); } catch (_) {}
         startGame();
     }
 }
 
 function handleReady(dt) {
     state.phaseTimer -= dt;
+
+    // Animated countdown: phaseTimer 4→0 shows 3,2,1,GO!
+    const currentCount = Math.min(Math.ceil(state.phaseTimer), 4);
+    const text = currentCount === 1 ? 'GO!' : (currentCount - 1).toString();
+
     if (state.phaseTimer <= 0) {
+        countdownEl.classList.remove('pop');
+        countdownEl.textContent = '';
         state.phase = PHASE.PLAYING;
         hideOverlay();
         if (!state.ambientStarted) {
             initAmbient();
-            startSiren();
             state.ambientStarted = true;
         }
+    } else if (countdownEl.textContent !== text) {
+        countdownEl.textContent = text;
+        countdownEl.classList.remove('pop');
+        void countdownEl.offsetWidth;
+        countdownEl.classList.add('pop');
     }
 }
 
@@ -131,11 +148,21 @@ function handlePlaying(dt) {
     updateFruit(fruit, dt);
     updateParticles(dt);
     updateAmbient(player.x, player.z, ghosts);
-    const anyFrightened = ghosts.some(g => g.state === 2);
-    updateSiren(state.level, anyFrightened);
 
-    const isMoving = player.moving && player.direction;
-    if (isMoving) {
+    // Ghost proximity factor for flashlight disturbance (chase/scatter only)
+    let minGhostDist = Infinity;
+    for (const ghost of ghosts) {
+        if (ghost.state <= 1) { // CHASE or SCATTER
+            const dx = ghost.x - player.x;
+            const dz = ghost.z - player.z;
+            const d = Math.sqrt(dx * dx + dz * dz);
+            if (d < minGhostDist) minGhostDist = d;
+        }
+    }
+    player.nearGhostFactor = Math.min(1, Math.max(0, (5 - minGhostDist) / 3));
+
+    // Footsteps
+    if (player.moving && player.direction) {
         state.stepTimer -= dt;
         if (state.stepTimer <= 0) {
             playFootstep();
@@ -145,48 +172,59 @@ function handlePlaying(dt) {
         state.stepTimer = 0;
     }
 
+    // Pellets
     const eaten = checkPelletCollisions(player, pellets);
     if (eaten.dots > 0) {
         state.score += DOT_SCORE * eaten.dots;
         playChomp();
-        spawnParticles(player.x, 0.3, player.z, 0xffff44, 4, 1.5, 0.4);
+        playScoreTick();
+        spawnParticles(player.x, 0.3, player.z, 0x886644, 4, 1.5, 0.4);
         for (let i = 0; i < eaten.dots; i++) notifyPelletEaten(fruit, state.level);
     }
     if (eaten.powers > 0) {
         state.score += POWER_SCORE * eaten.powers;
         player.powerTimer = 8;
+        player.powerFlashTimer = 0.25;
         state.ghostCombo = 0;
         frightenGhosts(ghosts, state.level);
         playPowerUp();
-        spawnParticles(player.x, 0.4, player.z, 0x4444ff, 12, 3, 0.8);
+        playScoreTick();
+        spawnParticles(player.x, 0.4, player.z, 0x880000, 12, 3, 0.8);
     }
 
+    // Fruit
     const fruitScore = checkFruitCollision(player, fruit);
     if (fruitScore > 0) {
         state.score += fruitScore;
         playFruitEat();
+        playScoreTick();
         spawnParticles(fruit.x, 0.4, fruit.z, 0xff8800, 20, 3.5, 1.0);
         showFruitScore(fruitScore);
     }
 
+    // Ghosts
     const ghostResult = checkGhostCollisions(player, ghosts);
     if (ghostResult.ghostsEaten > 0) {
         for (let i = 0; i < ghostResult.ghostsEaten; i++) {
             state.ghostCombo++;
-            state.score += GHOST_BASE_SCORE * Math.pow(2, state.ghostCombo - 1);
+            const pts = GHOST_BASE_SCORE * Math.pow(2, state.ghostCombo - 1);
+            state.score += pts;
+            playScoreTick();
+            showCombo(state.ghostCombo, pts);
         }
         playGhostEat();
-        spawnParticles(player.x, 0.4, player.z, 0x2222ff, 16, 4, 0.7);
+        spawnParticles(player.x, 0.4, player.z, 0xaa0000, 16, 4, 0.7);
     }
 
     if (ghostResult.died) {
         state.phase = PHASE.DYING;
-        state.phaseTimer = 1.5;
+        state.phaseTimer = 2.0;
         player.alive = false;
         playDeath();
-        setCameraShake(1.0);
+        triggerJumpscare();
+        setCameraShake(1.5);
         triggerDeathFlash();
-        spawnParticles(player.x, 0.5, player.z, 0xff0000, 30, 5, 1.2);
+        spawnParticles(player.x, 0.5, player.z, 0xff0000, 40, 6, 1.5);
     }
 
     if (countRemaining(pellets) === 0) {
@@ -195,8 +233,16 @@ function handlePlaying(dt) {
         showLevelComplete(state.level);
     }
 
-    updateHUD(state.score, state.level, state.lives, player.powerTimer);
-    updateMinimap(player, ghosts, pellets);
+    // Random flashlight flicker
+    flickerTimer += dt;
+    if (flickerTimer >= nextFlickerTime) {
+        flickerTimer = 0;
+        nextFlickerTime = 8 + Math.random() * 20;
+        triggerFlicker();
+    }
+
+    updateHUD(state.score, state.level, state.lives, player.powerTimer, sprinting && player.moving);
+    updateMinimap(player, ghosts, pellets, getYaw());
 }
 
 function handleDying(dt) {
@@ -208,18 +254,17 @@ function handleDying(dt) {
         if (state.lives <= 0) {
             state.phase = PHASE.GAME_OVER;
             stopAmbient();
-            stopSiren();
             state.ambientStarted = false;
-            showGameOver(state.score);
+            showGameOver(state.score, state.score >= getHighScore() && state.score > 0);
         } else {
             resetPlayer(player);
             resetGhosts(ghosts);
             resetFPSCamera(player);
             state.phase = PHASE.READY;
-            state.phaseTimer = 2;
+            state.phaseTimer = 4;
             showReady();
         }
-        updateHUD(state.score, state.level, state.lives, player.powerTimer);
+        updateHUD(state.score, state.level, state.lives, player.powerTimer, false);
     }
 }
 
@@ -233,9 +278,9 @@ function handleLevelComplete(dt) {
         resetFruit(fruit);
         resetFPSCamera(player);
         state.phase = PHASE.READY;
-        state.phaseTimer = 2;
+        state.phaseTimer = 4;
         showReady();
-        updateHUD(state.score, state.level, state.lives, player.powerTimer);
+        updateHUD(state.score, state.level, state.lives, player.powerTimer, false);
     }
 }
 
@@ -252,8 +297,9 @@ function startGame() {
     state.level = 1;
     state.ghostCombo = 0;
     state.stepTimer = 0;
+    isPaused = false;
+    pauseOverlay.classList.remove('active');
     stopAmbient();
-    stopSiren();
     state.ambientStarted = false;
     resetPlayer(player);
     resetGhosts(ghosts);
@@ -261,9 +307,9 @@ function startGame() {
     resetFruit(fruit);
     resetFPSCamera(player);
     state.phase = PHASE.READY;
-    state.phaseTimer = 2;
+    state.phaseTimer = 4;
     showReady();
-    updateHUD(state.score, state.level, state.lives, player.powerTimer);
+    updateHUD(state.score, state.level, state.lives, player.powerTimer, false);
 }
 
 function triggerDeathFlash() {
@@ -273,7 +319,41 @@ function triggerDeathFlash() {
     setTimeout(() => deathFlash.classList.remove('active'), 1500);
 }
 
+function triggerJumpscare() {
+    playJumpscare();
+    // Full-screen jumpscare overlay
+    jumpscareOverlay.classList.remove('active');
+    void jumpscareOverlay.offsetWidth;
+    jumpscareOverlay.classList.add('active');
+    setTimeout(() => jumpscareOverlay.classList.remove('active'), 1800);
+    // Static noise burst
+    staticNoise.classList.add('flash');
+    setTimeout(() => staticNoise.classList.remove('flash'), 600);
+}
+
+function triggerFlicker() {
+    playFlickerSound();
+    // Multi-burst flicker via flickerScale — updateLights multiplies by it each frame
+    player.flickerScale = 0;
+    gameCanvas.classList.add('flicker');
+    staticNoise.classList.add('flash');
+
+    setTimeout(() => { player.flickerScale = 1.0; },  60);
+    setTimeout(() => { player.flickerScale = 0;   }, 100);
+    setTimeout(() => { player.flickerScale = 0.4; }, 145);
+    setTimeout(() => { player.flickerScale = 0;   }, 185);
+    setTimeout(() => { player.flickerScale = 1.0; }, 235);
+    setTimeout(() => { player.flickerScale = 0;   }, 285);
+    setTimeout(() => { player.flickerScale = 0.7; }, 315);
+    setTimeout(() => {
+        player.flickerScale = 1.0;
+        gameCanvas.classList.remove('flicker');
+        staticNoise.classList.remove('flash');
+    }, 420);
+}
+
 function showFruitScore(score) {
+    if (!fruitScoreEl) return;
     fruitScoreEl.textContent = score;
     fruitScoreEl.classList.remove('show');
     void fruitScoreEl.offsetWidth;

@@ -44,10 +44,10 @@ export const MAZE_LAYOUT = [
 export const PLAYER_START = { x: 13.5, z: 21.5 };
 
 export const GHOST_STARTS = [
-    { x: 13.5, z: 13, color: 0xff0000, name: 'blinky' },
-    { x: 12,   z: 13, color: 0xffb8ff, name: 'pinky' },
-    { x: 14,   z: 13, color: 0x00ffff, name: 'inky' },
-    { x: 15,   z: 13, color: 0xffb852, name: 'clyde' },
+    { x: 13.5, z: 13, color: 0xaa0000, name: 'blinky' },
+    { x: 12,   z: 13, color: 0x884466, name: 'pinky' },
+    { x: 14,   z: 13, color: 0x226666, name: 'inky' },
+    { x: 15,   z: 13, color: 0x885522, name: 'clyde' },
 ];
 
 export const ROWS = MAZE_LAYOUT.length;

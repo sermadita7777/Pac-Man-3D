@@ -1,90 +1,171 @@
 import { MAZE_LAYOUT, CELL, ROWS, COLS } from '../data/mazeData.js';
 
-const SCALE = 4;
-const PADDING = 16;
-let canvas, ctx;
+const SCALE = 5;
+let canvas, ctx, staticImage;
+
+const GHOST_COLORS = {
+    blinky: [170, 0, 0],
+    pinky: [136, 68, 102],
+    inky: [34, 102, 102],
+    clyde: [136, 85, 34],
+};
 
 export function createMinimap() {
+    const container = document.createElement('div');
+    container.id = 'minimap-container';
+
     canvas = document.createElement('canvas');
-    canvas.id = 'minimap';
     canvas.width = COLS * SCALE;
     canvas.height = ROWS * SCALE;
-    canvas.style.cssText = `
-        position: fixed;
-        bottom: ${PADDING}px;
-        right: ${PADDING}px;
-        z-index: 15;
-        border: 1px solid rgba(0,100,255,0.4);
-        border-radius: 4px;
-        opacity: 0.8;
-        image-rendering: pixelated;
-    `;
-    document.getElementById('game-container').appendChild(canvas);
+    container.appendChild(canvas);
+
+    const label = document.createElement('div');
+    label.id = 'minimap-label';
+    label.textContent = 'MAP';
+    container.appendChild(label);
+
+    document.getElementById('game-container').appendChild(container);
     ctx = canvas.getContext('2d');
-    drawStatic();
+    cacheStaticLayer();
 }
 
-function drawStatic() {
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+function cacheStaticLayer() {
+    const off = document.createElement('canvas');
+    off.width = COLS * SCALE;
+    off.height = ROWS * SCALE;
+    const oc = off.getContext('2d');
+
+    oc.fillStyle = 'rgba(5,0,0,0.95)';
+    oc.fillRect(0, 0, off.width, off.height);
 
     for (let row = 0; row < ROWS; row++) {
         for (let col = 0; col < COLS; col++) {
             const cell = MAZE_LAYOUT[row][col];
             if (cell === CELL.WALL) {
-                ctx.fillStyle = '#1818aa';
-                ctx.fillRect(col * SCALE, row * SCALE, SCALE, SCALE);
+                oc.fillStyle = '#1a0808';
+                oc.fillRect(col * SCALE, row * SCALE, SCALE, SCALE);
+                oc.fillStyle = 'rgba(80,20,20,0.2)';
+                oc.fillRect(col * SCALE, row * SCALE, SCALE, 1);
+                oc.fillRect(col * SCALE, row * SCALE, 1, SCALE);
             } else if (cell === CELL.GHOST_DOOR) {
-                ctx.fillStyle = '#ff44ff';
-                ctx.fillRect(col * SCALE, row * SCALE, SCALE, SCALE);
+                oc.fillStyle = '#660000';
+                oc.fillRect(col * SCALE, row * SCALE, SCALE, 2);
             }
         }
     }
+
+    staticImage = off;
 }
 
-export function updateMinimap(player, ghosts, pellets) {
-    drawStatic();
+export function updateMinimap(player, ghosts, pellets, cameraYaw) {
+    ctx.drawImage(staticImage, 0, 0);
 
-    ctx.fillStyle = 'rgba(255,255,150,0.5)';
+    // Pellets — tiny dots
+    ctx.fillStyle = 'rgba(136,100,68,0.4)';
     for (const dot of pellets.dots) {
         if (!dot.active) continue;
-        ctx.fillRect(dot.col * SCALE + 1, dot.row * SCALE + 1, SCALE - 2, SCALE - 2);
+        const cx = dot.col * SCALE + SCALE / 2;
+        const cy = dot.row * SCALE + SCALE / 2;
+        ctx.fillRect(cx - 0.5, cy - 0.5, 1, 1);
     }
 
-    ctx.fillStyle = '#ffaa00';
+    // Power pellets — pulsing circles
+    const pulse = 0.65 + Math.sin(Date.now() * 0.006) * 0.35;
+    ctx.fillStyle = `rgba(136,0,0,${pulse})`;
     for (const pow of pellets.powers) {
         if (!pow.active) continue;
-        ctx.fillRect(pow.col * SCALE, pow.row * SCALE, SCALE, SCALE);
+        ctx.beginPath();
+        ctx.arc(pow.col * SCALE + SCALE / 2, pow.row * SCALE + SCALE / 2, SCALE * 0.42, 0, Math.PI * 2);
+        ctx.fill();
     }
 
+    // Ghosts — rounded ghost shape with glow
     for (const ghost of ghosts) {
-        const colors = {
-            blinky: '#ff0000',
-            pinky: '#ffb8ff',
-            inky: '#00ffff',
-            clyde: '#ffb852',
-        };
-        ctx.fillStyle = ghost.state === 2 ? '#2222ff' : (colors[ghost.name] || '#ff0000');
-        ctx.fillRect(
-            ghost.x * SCALE - SCALE / 2,
-            ghost.z * SCALE - SCALE / 2,
-            SCALE, SCALE
-        );
+        const gx = ghost.x * SCALE;
+        const gz = ghost.z * SCALE;
+        const r = SCALE * 0.48;
+
+        let cr, cg, cb, alpha;
+        if (ghost.state === 2) {
+            const flash = Math.sin(Date.now() * 0.01) > 0;
+            [cr, cg, cb] = flash ? [33, 33, 255] : [255, 255, 255];
+            alpha = 1;
+        } else if (ghost.state === 3 || ghost.state === 4) {
+            [cr, cg, cb] = GHOST_COLORS[ghost.name] || [255, 0, 0];
+            alpha = 0.25;
+        } else {
+            [cr, cg, cb] = GHOST_COLORS[ghost.name] || [255, 0, 0];
+            alpha = 1;
+        }
+
+        ctx.fillStyle = `rgba(${cr},${cg},${cb},${alpha})`;
+        ctx.beginPath();
+        ctx.arc(gx, gz - r * 0.15, r, Math.PI, 0);
+        ctx.lineTo(gx + r, gz + r * 0.65);
+        ctx.lineTo(gx, gz + r * 0.25);
+        ctx.lineTo(gx - r, gz + r * 0.65);
+        ctx.closePath();
+        ctx.fill();
+
+        if (alpha === 1) {
+            ctx.shadowColor = `rgb(${cr},${cg},${cb})`;
+            ctx.shadowBlur = 5;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
     }
 
-    ctx.fillStyle = '#ffff00';
-    ctx.beginPath();
-    ctx.arc(player.x * SCALE, player.z * SCALE, SCALE, 0, Math.PI * 2);
-    ctx.fill();
+    // Player — pac-man with directional mouth
+    const px = player.x * SCALE;
+    const pz = player.z * SCALE;
+    const pr = SCALE * 0.58;
+    const angle = { up: -Math.PI / 2, down: Math.PI / 2, left: Math.PI, right: 0 }[player.direction] ?? 0;
+    const mouth = 0.35;
 
-    const angle = { up: -Math.PI/2, down: Math.PI/2, left: Math.PI, right: 0 }[player.direction] ?? 0;
-    ctx.strokeStyle = '#ffff00';
-    ctx.lineWidth = 1;
+    // Camera look direction cone
+    if (cameraYaw !== undefined) {
+        // In canvas space: look dir = (-sin(yaw), -cos(yaw)) → atan2(dy, dx)
+        const lookAngle = Math.atan2(-Math.cos(cameraYaw), -Math.sin(cameraYaw));
+        const halfFOV = Math.PI / 5; // ~36° half-angle (72° total)
+        const coneLen = SCALE * 4.5;
+
+        // Filled wedge
+        ctx.beginPath();
+        ctx.moveTo(px, pz);
+        ctx.arc(px, pz, coneLen, lookAngle - halfFOV, lookAngle + halfFOV);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(220, 170, 80, 0.14)';
+        ctx.fill();
+
+        // Edge lines of the cone
+        ctx.strokeStyle = 'rgba(220, 170, 80, 0.30)';
+        ctx.lineWidth = 0.7;
+        ctx.beginPath();
+        ctx.moveTo(px, pz);
+        ctx.lineTo(px + Math.cos(lookAngle - halfFOV) * coneLen,
+                   pz + Math.sin(lookAngle - halfFOV) * coneLen);
+        ctx.moveTo(px, pz);
+        ctx.lineTo(px + Math.cos(lookAngle + halfFOV) * coneLen,
+                   pz + Math.sin(lookAngle + halfFOV) * coneLen);
+        ctx.stroke();
+
+        // Center direction line
+        ctx.strokeStyle = 'rgba(255, 200, 100, 0.70)';
+        ctx.lineWidth = 0.9;
+        ctx.beginPath();
+        ctx.moveTo(px, pz);
+        ctx.lineTo(px + Math.cos(lookAngle) * coneLen * 0.85,
+                   pz + Math.sin(lookAngle) * coneLen * 0.85);
+        ctx.stroke();
+    }
+
+    ctx.fillStyle = '#aa6622';
+    ctx.shadowColor = '#aa6622';
+    ctx.shadowBlur = 7;
     ctx.beginPath();
-    ctx.moveTo(player.x * SCALE, player.z * SCALE);
-    ctx.lineTo(
-        player.x * SCALE + Math.cos(angle) * SCALE * 2.5,
-        player.z * SCALE + Math.sin(angle) * SCALE * 2.5
-    );
-    ctx.stroke();
+    ctx.arc(px, pz, pr, angle + mouth, angle + Math.PI * 2 - mouth);
+    ctx.lineTo(px, pz);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
 }

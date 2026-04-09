@@ -3,21 +3,21 @@ import { MAZE_LAYOUT, CELL, ROWS, COLS } from '../data/mazeData.js';
 
 const DOT_RADIUS = 0.08;
 const POWER_RADIUS = 0.18;
-const DOT_COLOR = 0xffddbb;
-const POWER_COLOR = 0xffaa00;
+const DOT_COLOR = 0x886644;
+const POWER_COLOR = 0x880000;
 
 const dotGeo = new THREE.SphereGeometry(DOT_RADIUS, 8, 8);
 const dotMat = new THREE.MeshStandardMaterial({
     color: DOT_COLOR,
     emissive: DOT_COLOR,
-    emissiveIntensity: 1.2,
+    emissiveIntensity: 0.8,
 });
 
 const powerGeo = new THREE.SphereGeometry(POWER_RADIUS, 12, 12);
 const powerMat = new THREE.MeshStandardMaterial({
     color: POWER_COLOR,
     emissive: POWER_COLOR,
-    emissiveIntensity: 1.5,
+    emissiveIntensity: 1.8,
 });
 
 export function createPellets(scene) {
@@ -37,7 +37,7 @@ export function createPellets(scene) {
                 const mesh = new THREE.Mesh(powerGeo, powerMat);
                 mesh.position.set(col + 0.5, 0.35, row + 0.5);
                 scene.add(mesh);
-                const light = new THREE.PointLight(POWER_COLOR, 1.2, 4);
+                const light = new THREE.PointLight(POWER_COLOR, 1.0, 3);
                 light.position.set(col + 0.5, 0.5, row + 0.5);
                 scene.add(light);
                 powers.push({ mesh, light, col, row, active: true });

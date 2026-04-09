@@ -1,4 +1,5 @@
 const keys = {};
+const justPressed = new Set();
 let mouseX = 0;
 let mouseY = 0;
 let mouseDX = 0;
@@ -8,6 +9,7 @@ const SENSITIVITY = 0.002;
 
 export function initInput(canvas) {
     window.addEventListener('keydown', (e) => {
+        if (!keys[e.code]) justPressed.add(e.code);
         keys[e.code] = true;
     });
 
@@ -45,11 +47,12 @@ export function isKeyDown(code) {
 }
 
 export function isEnterPressed() {
-    return !!keys['Enter'];
+    return justPressed.has('Enter');
 }
 
 export function clearKey(code) {
     keys[code] = false;
+    justPressed.delete(code);
 }
 
 export function isPointerLocked() {

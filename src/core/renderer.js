@@ -20,7 +20,7 @@ export function createRenderer(canvas) {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    renderer.toneMappingExposure = 0.55;
 
     window.addEventListener('resize', () => {
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -43,9 +43,9 @@ export async function setupPostProcessing(renderer, scene, camera) {
 
         const bloom = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
-            0.35,
-            0.4,
-            0.82
+            0.5,
+            0.6,
+            0.7
         );
         composer.addPass(bloom);
     } catch (_) {
@@ -55,13 +55,13 @@ export async function setupPostProcessing(renderer, scene, camera) {
 
 export function createScene() {
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x020208);
-    scene.fog = new THREE.FogExp2(0x020210, 0.10);
+    scene.background = new THREE.Color(0x010101);
+    scene.fog = new THREE.FogExp2(0x010101, 0.18);
 
-    const ambient = new THREE.AmbientLight(0x0a0a2a, 0.35);
+    const ambient = new THREE.AmbientLight(0x0a0505, 0.15);
     scene.add(ambient);
 
-    const hemi = new THREE.HemisphereLight(0x0808aa, 0x020206, 0.15);
+    const hemi = new THREE.HemisphereLight(0x080404, 0x010101, 0.08);
     scene.add(hemi);
 
     return scene;

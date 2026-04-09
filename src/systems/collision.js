@@ -29,7 +29,7 @@ export function checkPelletCollisions(player, pellets) {
 }
 
 export function checkGhostCollisions(player, ghosts) {
-    const result = { died: false, ghostsEaten: 0 };
+    const result = { died: false, ghostsEaten: 0, eatenPositions: [] };
 
     for (const ghost of ghosts) {
         if (ghost.state === STATE.EATEN || ghost.state === STATE.HOUSE) continue;
@@ -38,6 +38,7 @@ export function checkGhostCollisions(player, ghosts) {
             if (ghost.state === STATE.FRIGHTENED) {
                 ghost.state = STATE.EATEN;
                 result.ghostsEaten++;
+                result.eatenPositions.push({ x: ghost.x, z: ghost.z });
             } else {
                 result.died = true;
                 break;

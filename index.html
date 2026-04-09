@@ -3,33 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PAC-MAN 3D</title>
+    <title>Labyrinth of Whispers</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div id="game-container">
         <canvas id="game-canvas"></canvas>
+        <div id="crosshair">+</div>
         <div id="hud">
-            <div id="score-display">SCORE: <span id="score">0</span></div>
-            <div id="lives-display"></div>
-            <div id="level-display">LEVEL: <span id="level">1</span></div>
+            <div id="hud-left">
+                <div id="score-display">SCORE: <span id="score">0</span></div>
+                <div id="high-score-display">HI: <span id="high-score">0</span></div>
+                <div id="lives-display"></div>
+            </div>
+            <div id="hud-center">
+                <div id="level-display">LEVEL <span id="level">1</span></div>
+            </div>
+            <div id="hud-right">
+                <div id="sprint-indicator">SPRINT</div>
+            </div>
         </div>
         <div id="screen-overlay">
             <div id="screen-content">
                 <h1 id="screen-title">PAC-MAN 3D</h1>
                 <p id="screen-text">Press ENTER to start</p>
                 <div id="screen-controls">
-                    <p>WASD / Arrow Keys — Move</p>
+                    <p>Mouse — Look around</p>
+                    <p>W / A / S / D — Move</p>
                     <p>SHIFT — Sprint</p>
+                    <p>ESC — Pause</p>
+                    <p>Click — Lock cursor</p>
                 </div>
             </div>
         </div>
+        <div id="countdown"></div>
+        <div id="combo-display"></div>
+        <div id="power-label">POWER</div>
+        <div id="power-bar-container">
+            <div id="power-bar-fill"></div>
+        </div>
+        <div id="pause-overlay">
+            <h1>PAUSED</h1>
+            <p>Press ESC to resume</p>
+        </div>
         <div id="power-indicator">POWER MODE</div>
+        <div id="lock-prompt" class="hidden">Click to lock cursor</div>
+        <div id="death-flash"></div>
+        <div id="fruit-score"></div>
+        <div id="jumpscare-overlay"></div>
+        <div id="vignette"></div>
+        <div id="scanlines"></div>
+        <div id="static-noise"></div>
     </div>
+    <script>
+        window.__gameLoaded = false;
+        window.addEventListener('error', (e) => {
+            if (window.__gameLoaded) return;
+            const text = document.getElementById('screen-text');
+            if (text) text.innerHTML = '<span style="color:#ff4444;font-size:0.55em">' + (e.message || 'Error desconocido') + '<br>' + (e.filename ? e.filename.split('/').pop() + ':' + e.lineno : '') + '</span>';
+        });
+        window.addEventListener('unhandledrejection', (e) => {
+            if (window.__gameLoaded) return;
+            const text = document.getElementById('screen-text');
+            if (text) text.innerHTML = '<span style="color:#ff4444;font-size:0.55em">' + String(e.reason) + '</span>';
+        });
+    </script>
     <script type="importmap">
     {
         "imports": {
-            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
         }
     }
     </script>

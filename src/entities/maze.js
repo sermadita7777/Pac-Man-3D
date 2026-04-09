@@ -2,9 +2,6 @@ import * as THREE from 'three';
 import { MAZE_LAYOUT, CELL, ROWS, COLS } from '../data/mazeData.js';
 
 const WALL_HEIGHT = 1.4;
-const NEON_STRIP_HEIGHT = 0.04;
-const NEON_COLOR = 0x2244ff;
-const NEON_COLOR_ALT = 0x6622cc;
 
 function createWallTexture() {
     const size = 256;
@@ -13,33 +10,34 @@ function createWallTexture() {
     canvas.height = size;
     const ctx = canvas.getContext('2d');
 
+    // Dark concrete/plaster base
     const baseGrad = ctx.createLinearGradient(0, 0, 0, size);
-    baseGrad.addColorStop(0, '#0a0a60');
-    baseGrad.addColorStop(0.5, '#060640');
-    baseGrad.addColorStop(1, '#080850');
+    baseGrad.addColorStop(0, '#1a1510');
+    baseGrad.addColorStop(0.5, '#0e0c08');
+    baseGrad.addColorStop(1, '#161210');
     ctx.fillStyle = baseGrad;
     ctx.fillRect(0, 0, size, size);
 
+    // Brick pattern - dark, grimy
     const brickH = 20;
     const brickW = 40;
     for (let row = 0; row < size / brickH; row++) {
         const y = row * brickH;
         const offset = (row % 2) * brickW / 2;
         for (let bx = offset - brickW; bx < size + brickW; bx += brickW) {
-            const shade = 30 + Math.random() * 25;
-            const bShade = 100 + Math.random() * 80;
-            ctx.fillStyle = `rgb(${shade}, ${shade}, ${bShade})`;
+            const shade = 12 + Math.random() * 18;
+            ctx.fillStyle = `rgb(${shade + 5}, ${shade - 1}, ${shade - 4})`;
             ctx.fillRect(bx + 2, y + 2, brickW - 3, brickH - 3);
 
             const innerGrad = ctx.createLinearGradient(bx + 2, y + 2, bx + 2, y + brickH - 1);
-            innerGrad.addColorStop(0, 'rgba(120,120,255,0.12)');
-            innerGrad.addColorStop(0.5, 'rgba(0,0,0,0)');
-            innerGrad.addColorStop(1, 'rgba(0,0,30,0.15)');
+            innerGrad.addColorStop(0, 'rgba(30,20,10,0.15)');
+            innerGrad.addColorStop(0.5, 'rgba(0,0,0,0.12)');
+            innerGrad.addColorStop(1, 'rgba(10,5,0,0.2)');
             ctx.fillStyle = innerGrad;
             ctx.fillRect(bx + 2, y + 2, brickW - 3, brickH - 3);
         }
 
-        ctx.strokeStyle = 'rgba(20,20,50,0.8)';
+        ctx.strokeStyle = 'rgba(6,4,2,0.9)';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(0, y);
@@ -53,25 +51,70 @@ function createWallTexture() {
         }
     }
 
-    for (let i = 0; i < 300; i++) {
+    // Blood stains
+    for (let i = 0; i < 6; i++) {
         const x = Math.random() * size;
         const y = Math.random() * size;
-        const brightness = Math.random() * 30;
-        ctx.fillStyle = `rgba(${40 + brightness}, ${40 + brightness}, ${160 + brightness}, ${0.15 + Math.random() * 0.15})`;
-        ctx.fillRect(x, y, 1 + Math.random(), 1 + Math.random());
+        const r = 8 + Math.random() * 25;
+        const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+        grad.addColorStop(0, `rgba(80,0,0,${0.12 + Math.random() * 0.2})`);
+        grad.addColorStop(0.5, `rgba(50,0,0,${0.06 + Math.random() * 0.1})`);
+        grad.addColorStop(1, 'rgba(30,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x - r, y - r, r * 2, r * 2);
     }
 
-    const topGlow = ctx.createLinearGradient(0, 0, 0, 30);
-    topGlow.addColorStop(0, 'rgba(80,80,255,0.2)');
-    topGlow.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = topGlow;
-    ctx.fillRect(0, 0, size, 30);
+    // Blood drips
+    for (let i = 0; i < 4; i++) {
+        const x = Math.random() * size;
+        let cy = Math.random() * size * 0.2;
+        ctx.strokeStyle = `rgba(70,0,0,${0.15 + Math.random() * 0.3})`;
+        ctx.lineWidth = 0.8 + Math.random() * 2;
+        ctx.beginPath();
+        ctx.moveTo(x, cy);
+        while (cy < size && Math.random() > 0.04) {
+            cy += 2 + Math.random() * 5;
+            ctx.lineTo(x + (Math.random() - 0.5) * 3, cy);
+        }
+        ctx.stroke();
+    }
 
-    const bottomGlow = ctx.createLinearGradient(0, size - 30, 0, size);
-    bottomGlow.addColorStop(0, 'rgba(0,0,0,0)');
-    bottomGlow.addColorStop(1, 'rgba(80,40,200,0.15)');
-    ctx.fillStyle = bottomGlow;
-    ctx.fillRect(0, size - 30, size, 30);
+    // Rust stains
+    for (let i = 0; i < 3; i++) {
+        const x = Math.random() * size;
+        const y = Math.random() * size;
+        const r = 15 + Math.random() * 30;
+        const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+        grad.addColorStop(0, `rgba(60,30,10,${0.08 + Math.random() * 0.12})`);
+        grad.addColorStop(1, 'rgba(40,20,5,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+
+    // Cracks
+    for (let i = 0; i < 3; i++) {
+        ctx.strokeStyle = `rgba(4,3,2,${0.4 + Math.random() * 0.4})`;
+        ctx.lineWidth = 0.4 + Math.random() * 0.8;
+        ctx.beginPath();
+        let cx = Math.random() * size;
+        let cy2 = Math.random() * size;
+        ctx.moveTo(cx, cy2);
+        for (let j = 0; j < 10; j++) {
+            cx += (Math.random() - 0.5) * 25;
+            cy2 += Math.random() * 18;
+            ctx.lineTo(cx, cy2);
+        }
+        ctx.stroke();
+    }
+
+    // Grime specks
+    for (let i = 0; i < 400; i++) {
+        const x = Math.random() * size;
+        const y = Math.random() * size;
+        const b = Math.random() * 12;
+        ctx.fillStyle = `rgba(${b}, ${b - 2}, ${b - 3}, ${0.1 + Math.random() * 0.2})`;
+        ctx.fillRect(x, y, 1 + Math.random(), 1 + Math.random());
+    }
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;
@@ -88,30 +131,23 @@ function createFloorTexture() {
     canvas.height = size;
     const ctx = canvas.getContext('2d');
 
-    ctx.fillStyle = '#06060e';
+    // Dirty dark concrete
+    ctx.fillStyle = '#050403';
     ctx.fillRect(0, 0, size, size);
 
     const tileSize = 64;
     for (let y = 0; y < size; y += tileSize) {
         for (let x = 0; x < size; x += tileSize) {
             const checker = ((x / tileSize) + (y / tileSize)) % 2;
-            const base = checker ? 10 : 7;
+            const base = checker ? 8 : 5;
             const shade = base + Math.random() * 4;
-            ctx.fillStyle = `rgb(${shade}, ${shade}, ${shade + 6})`;
-            ctx.fillRect(x + 1, y + 1, tileSize - 2, tileSize - 2);
-
-            const tileGrad = ctx.createRadialGradient(
-                x + tileSize / 2, y + tileSize / 2, 0,
-                x + tileSize / 2, y + tileSize / 2, tileSize * 0.6
-            );
-            tileGrad.addColorStop(0, 'rgba(40,40,100,0.06)');
-            tileGrad.addColorStop(1, 'rgba(0,0,0,0.05)');
-            ctx.fillStyle = tileGrad;
+            ctx.fillStyle = `rgb(${shade + 2}, ${shade}, ${shade - 1})`;
             ctx.fillRect(x + 1, y + 1, tileSize - 2, tileSize - 2);
         }
     }
 
-    ctx.strokeStyle = 'rgba(30,30,80,0.25)';
+    // Cracks in floor
+    ctx.strokeStyle = 'rgba(20,15,10,0.3)';
     ctx.lineWidth = 1.5;
     for (let i = 0; i <= size; i += tileSize) {
         ctx.beginPath();
@@ -124,10 +160,25 @@ function createFloorTexture() {
         ctx.stroke();
     }
 
-    for (let i = 0; i < 100; i++) {
+    // Blood pools on floor
+    for (let i = 0; i < 8; i++) {
         const x = Math.random() * size;
         const y = Math.random() * size;
-        ctx.fillStyle = `rgba(60,60,140,${Math.random() * 0.08})`;
+        const r = 5 + Math.random() * 20;
+        const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+        grad.addColorStop(0, `rgba(40,0,0,${0.08 + Math.random() * 0.12})`);
+        grad.addColorStop(1, 'rgba(20,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.ellipse(x, y, r, r * 0.6, Math.random() * Math.PI, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Dirt specks
+    for (let i = 0; i < 150; i++) {
+        const x = Math.random() * size;
+        const y = Math.random() * size;
+        ctx.fillStyle = `rgba(30,20,10,${Math.random() * 0.1})`;
         ctx.beginPath();
         ctx.arc(x, y, Math.random() * 3, 0, Math.PI * 2);
         ctx.fill();
@@ -149,11 +200,13 @@ function createCeilingTexture() {
     canvas.height = size;
     const ctx = canvas.getContext('2d');
 
-    ctx.fillStyle = '#020206';
+    // Near-black ceiling
+    ctx.fillStyle = '#020201';
     ctx.fillRect(0, 0, size, size);
 
+    // Subtle panel lines
     const panelSize = 64;
-    ctx.strokeStyle = 'rgba(20,20,50,0.3)';
+    ctx.strokeStyle = 'rgba(10,8,5,0.3)';
     ctx.lineWidth = 1;
     for (let i = 0; i <= size; i += panelSize) {
         ctx.beginPath();
@@ -166,30 +219,16 @@ function createCeilingTexture() {
         ctx.stroke();
     }
 
-    for (let i = 0; i < 80; i++) {
+    // Water stains / mold
+    for (let i = 0; i < 6; i++) {
         const x = Math.random() * size;
         const y = Math.random() * size;
-        const r = 0.5 + Math.random() * 1.5;
-        const bright = Math.random();
-        ctx.fillStyle = `rgba(${80 + bright * 40},${80 + bright * 40},${180 + bright * 60},${0.05 + bright * 0.1})`;
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    for (let y = 0; y < size; y += panelSize) {
-        for (let x = 0; x < size; x += panelSize) {
-            if (Math.random() < 0.15) {
-                const glow = ctx.createRadialGradient(
-                    x + panelSize / 2, y + panelSize / 2, 0,
-                    x + panelSize / 2, y + panelSize / 2, panelSize * 0.4
-                );
-                glow.addColorStop(0, 'rgba(40,40,120,0.08)');
-                glow.addColorStop(1, 'rgba(0,0,0,0)');
-                ctx.fillStyle = glow;
-                ctx.fillRect(x, y, panelSize, panelSize);
-            }
-        }
+        const r = 10 + Math.random() * 30;
+        const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+        grad.addColorStop(0, `rgba(15,12,5,${0.05 + Math.random() * 0.1})`);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x - r, y - r, r * 2, r * 2);
     }
 
     const tex = new THREE.CanvasTexture(canvas);
@@ -220,35 +259,28 @@ export function buildMaze(scene) {
     const wallTex = createWallTexture();
     const wallMat = new THREE.MeshStandardMaterial({
         map: wallTex,
-        roughness: 0.65,
-        metalness: 0.35,
-        emissive: 0x0808aa,
-        emissiveIntensity: 0.06,
+        roughness: 0.9,
+        metalness: 0.05,
+        emissive: 0x050201,
+        emissiveIntensity: 0.02,
     });
 
-    const neonMat = new THREE.MeshStandardMaterial({
-        color: NEON_COLOR,
-        emissive: NEON_COLOR,
-        emissiveIntensity: 2.0,
-        roughness: 0.2,
-        metalness: 0.8,
-    });
-
-    const neonAltMat = new THREE.MeshStandardMaterial({
-        color: NEON_COLOR_ALT,
-        emissive: NEON_COLOR_ALT,
-        emissiveIntensity: 1.5,
-        roughness: 0.2,
-        metalness: 0.8,
+    // Dim reddish accent strip instead of neon
+    const accentMat = new THREE.MeshStandardMaterial({
+        color: 0x3a0808,
+        emissive: 0x2a0505,
+        emissiveIntensity: 0.6,
+        roughness: 0.5,
+        metalness: 0.3,
     });
 
     const doorGeo = new THREE.BoxGeometry(1, 0.3, 0.15);
     const doorMat = new THREE.MeshStandardMaterial({
-        color: 0xff88ff,
-        emissive: 0xff44ff,
-        emissiveIntensity: 1.2,
+        color: 0x440000,
+        emissive: 0x330000,
+        emissiveIntensity: 0.8,
         transparent: true,
-        opacity: 0.7,
+        opacity: 0.6,
     });
 
     const positions = [];
@@ -257,11 +289,13 @@ export function buildMaze(scene) {
     const indices = [];
     let vi = 0;
 
-    const neonPositions = [];
-    const neonNormals = [];
-    const neonUvs = [];
-    const neonIndices = [];
-    let nvi = 0;
+    const accentPositions = [];
+    const accentNormals = [];
+    const accentUvs = [];
+    const accentIndices = [];
+    let avi = 0;
+
+    const ACCENT_HEIGHT = 0.03;
 
     const faceConfig = [
         { dr: 0, dc: 1,  nx: 1, nz: 0,  corners: (cx,cz,hw,hd) => [[cx+hw,0,cz+hd],[cx+hw,0,cz-hd],[cx+hw,WALL_HEIGHT,cz-hd],[cx+hw,WALL_HEIGHT,cz+hd]] },
@@ -270,7 +304,7 @@ export function buildMaze(scene) {
         { dr:-1, dc: 0,  nx: 0, nz:-1,  corners: (cx,cz,hw,hd) => [[cx+hw,0,cz-hd],[cx-hw,0,cz-hd],[cx-hw,WALL_HEIGHT,cz-hd],[cx+hw,WALL_HEIGHT,cz-hd]] },
     ];
 
-    const neonStripFace = [
+    const accentStripFace = [
         { dr: 0, dc: 1,  nx: 1, nz: 0,  strip: (cx,cz,hw,hd,yb,yt) => [[cx+hw+0.005,yb,cz+hd],[cx+hw+0.005,yb,cz-hd],[cx+hw+0.005,yt,cz-hd],[cx+hw+0.005,yt,cz+hd]] },
         { dr: 0, dc: -1, nx:-1, nz: 0,  strip: (cx,cz,hw,hd,yb,yt) => [[cx-hw-0.005,yb,cz-hd],[cx-hw-0.005,yb,cz+hd],[cx-hw-0.005,yt,cz+hd],[cx-hw-0.005,yt,cz-hd]] },
         { dr: 1, dc: 0,  nx: 0, nz: 1,  strip: (cx,cz,hw,hd,yb,yt) => [[cx-hw,yb,cz+hd+0.005],[cx+hw,yb,cz+hd+0.005],[cx+hw,yt,cz+hd+0.005],[cx-hw,yt,cz+hd+0.005]] },
@@ -298,24 +332,16 @@ export function buildMaze(scene) {
                 indices.push(vi, vi+1, vi+2, vi, vi+2, vi+3);
                 vi += 4;
 
-                const nFace = neonStripFace[fi];
-                const bottomStrip = nFace.strip(cx, cz, hw, hd, 0, NEON_STRIP_HEIGHT);
+                // Dim accent strip at base only
+                const aFace = accentStripFace[fi];
+                const bottomStrip = aFace.strip(cx, cz, hw, hd, 0, ACCENT_HEIGHT);
                 for (const c of bottomStrip) {
-                    neonPositions.push(c[0], c[1], c[2]);
-                    neonNormals.push(nFace.nx, 0, nFace.nz);
+                    accentPositions.push(c[0], c[1], c[2]);
+                    accentNormals.push(aFace.nx, 0, aFace.nz);
                 }
-                neonUvs.push(0,0, 1,0, 1,1, 0,1);
-                neonIndices.push(nvi, nvi+1, nvi+2, nvi, nvi+2, nvi+3);
-                nvi += 4;
-
-                const topStrip = nFace.strip(cx, cz, hw, hd, WALL_HEIGHT - NEON_STRIP_HEIGHT, WALL_HEIGHT);
-                for (const c of topStrip) {
-                    neonPositions.push(c[0], c[1], c[2]);
-                    neonNormals.push(nFace.nx, 0, nFace.nz);
-                }
-                neonUvs.push(0,0, 1,0, 1,1, 0,1);
-                neonIndices.push(nvi, nvi+1, nvi+2, nvi, nvi+2, nvi+3);
-                nvi += 4;
+                accentUvs.push(0,0, 1,0, 1,1, 0,1);
+                accentIndices.push(avi, avi+1, avi+2, avi, avi+2, avi+3);
+                avi += 4;
             }
 
             const topCorners = [
@@ -334,12 +360,13 @@ export function buildMaze(scene) {
         }
     }
 
+    // Ghost house door - dark red
     for (let row = 0; row < ROWS; row++) {
         for (let col = 0; col < COLS; col++) {
             if (MAZE_LAYOUT[row][col] === CELL.GHOST_DOOR) {
                 const door = new THREE.Mesh(doorGeo, doorMat);
                 door.position.set(col + 0.5, WALL_HEIGHT - 0.15, row + 0.5);
-                const doorLight = new THREE.PointLight(0xff44ff, 0.6, 4);
+                const doorLight = new THREE.PointLight(0x660000, 0.4, 3);
                 doorLight.position.set(col + 0.5, WALL_HEIGHT, row + 0.5);
                 scene.add(door);
                 scene.add(doorLight);
@@ -358,16 +385,14 @@ export function buildMaze(scene) {
     wallMesh.receiveShadow = true;
     scene.add(wallMesh);
 
-    if (neonPositions.length > 0) {
-        const neonGeo = new THREE.BufferGeometry();
-        neonGeo.setAttribute('position', new THREE.Float32BufferAttribute(neonPositions, 3));
-        neonGeo.setAttribute('normal', new THREE.Float32BufferAttribute(neonNormals, 3));
-        neonGeo.setAttribute('uv', new THREE.Float32BufferAttribute(neonUvs, 2));
-        neonGeo.setIndex(neonIndices);
-        neonGeo.computeBoundingSphere();
-
-        const neonMesh = new THREE.Mesh(neonGeo, neonMat);
-        scene.add(neonMesh);
+    if (accentPositions.length > 0) {
+        const accentGeo = new THREE.BufferGeometry();
+        accentGeo.setAttribute('position', new THREE.Float32BufferAttribute(accentPositions, 3));
+        accentGeo.setAttribute('normal', new THREE.Float32BufferAttribute(accentNormals, 3));
+        accentGeo.setAttribute('uv', new THREE.Float32BufferAttribute(accentUvs, 2));
+        accentGeo.setIndex(accentIndices);
+        accentGeo.computeBoundingSphere();
+        scene.add(new THREE.Mesh(accentGeo, accentMat));
     }
 
     addCorridorLighting(scene);
@@ -375,8 +400,8 @@ export function buildMaze(scene) {
     const floorGeo = new THREE.PlaneGeometry(COLS, ROWS);
     const floorMat = new THREE.MeshStandardMaterial({
         map: createFloorTexture(),
-        roughness: 0.85,
-        metalness: 0.15,
+        roughness: 0.95,
+        metalness: 0.05,
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
@@ -389,8 +414,8 @@ export function buildMaze(scene) {
         map: createCeilingTexture(),
         roughness: 1,
         side: THREE.BackSide,
-        emissive: 0x020210,
-        emissiveIntensity: 0.1,
+        emissive: 0x010100,
+        emissiveIntensity: 0.02,
     });
     const ceiling = new THREE.Mesh(ceilGeo, ceilMat);
     ceiling.rotation.x = -Math.PI / 2;
@@ -402,12 +427,13 @@ export function buildMaze(scene) {
 
 function addCorridorLighting(scene) {
     let lightCount = 0;
-    const maxLights = 20;
+    const maxLights = 15;
 
     for (let row = 1; row < ROWS - 1 && lightCount < maxLights; row++) {
         for (let col = 1; col < COLS - 1 && lightCount < maxLights; col++) {
             if (isIntersection(row, col)) {
-                const light = new THREE.PointLight(0x1a1a66, 0.25, 5);
+                // Dim, warm flickering light - like dying bulbs
+                const light = new THREE.PointLight(0x331108, 0.3, 4);
                 light.position.set(col + 0.5, WALL_HEIGHT - 0.1, row + 0.5);
                 scene.add(light);
                 lightCount++;
@@ -415,15 +441,17 @@ function addCorridorLighting(scene) {
         }
     }
 
-    const tunnelLight1 = new THREE.PointLight(0x4444aa, 0.4, 6);
+    // Tunnel lights - eerie red
+    const tunnelLight1 = new THREE.PointLight(0x330000, 0.3, 5);
     tunnelLight1.position.set(1, 0.7, 13.5);
     scene.add(tunnelLight1);
 
-    const tunnelLight2 = new THREE.PointLight(0x4444aa, 0.4, 6);
+    const tunnelLight2 = new THREE.PointLight(0x330000, 0.3, 5);
     tunnelLight2.position.set(COLS - 1, 0.7, 13.5);
     scene.add(tunnelLight2);
 
-    const houseLight = new THREE.PointLight(0x6622aa, 0.5, 6);
+    // Ghost house - sinister glow
+    const houseLight = new THREE.PointLight(0x440000, 0.4, 5);
     houseLight.position.set(14, 0.8, 14);
     scene.add(houseLight);
 }

@@ -42,9 +42,9 @@ pacman3d/
    - O con Python: python -m http.server 8000
 3. Controles:
 
-- WASD / Flechas — Mover
-- SHIFT — Sprint
-- ENTER — Iniciar / Reiniciar
+WASD / Flechas — Mover
+SHIFT — Sprint
+ENTER — Iniciar / Reiniciar
 
 ## Detalles Técnicos
 

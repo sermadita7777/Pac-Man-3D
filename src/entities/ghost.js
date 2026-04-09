@@ -69,9 +69,9 @@ export function createGhosts(scene) {
         }
 
         const eyeGeo = new THREE.SphereGeometry(0.12, 10, 10);
-        const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.3 });
-        const pupilGeo = new THREE.SphereGeometry(0.06, 8, 8);
-        const pupilMat = new THREE.MeshStandardMaterial({ color: 0x000088, emissive: 0x000044, emissiveIntensity: 0.2 });
+        const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.4 });
+        const pupilGeo = new THREE.SphereGeometry(0.07, 8, 8);
+        const pupilMat = new THREE.MeshStandardMaterial({ color: 0x880000, emissive: 0xff0000, emissiveIntensity: 1.2 });
 
         const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
         leftEye.position.set(-0.14, 0.1, -0.28);
@@ -208,13 +208,25 @@ function updateVisuals(ghost, player, dt) {
     } else {
         ghost.bodyMat.color.setHex(ghost.originalColor);
         ghost.bodyMat.emissive.setHex(ghost.originalColor);
-        ghost.bodyMat.opacity = 1.0;
-        ghost.bodyMat.transparent = false;
+        ghost.bodyMat.emissiveIntensity = 0.7;
+        ghost.bodyMat.transparent = true;
         ghost.skirtMat.color.setHex(ghost.originalColor);
         ghost.skirtMat.emissive.setHex(ghost.originalColor);
         ghost.light.color.setHex(ghost.originalColor);
-        ghost.light.intensity = 1.5 + Math.sin(t * 2) * 0.3;
+        ghost.light.intensity = 1.8 + Math.sin(t * 2) * 0.5;
         ghost.mesh.scale.set(1, 1, 1);
+
+        // Glitch/flicker effect - random brief invisibility
+        const glitchChance = Math.sin(t * 7.3 + ghost.startX * 13) * Math.sin(t * 11.1 + ghost.startZ * 7);
+        if (glitchChance > 0.92) {
+            ghost.bodyMat.opacity = 0.1;
+            ghost.mesh.position.x += (Math.random() - 0.5) * 0.15;
+            ghost.mesh.position.z += (Math.random() - 0.5) * 0.15;
+        } else if (glitchChance > 0.85) {
+            ghost.bodyMat.opacity = 0.5 + Math.random() * 0.3;
+        } else {
+            ghost.bodyMat.opacity = 1.0;
+        }
     }
 }
 
